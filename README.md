@@ -2,7 +2,7 @@
 
 This repo gives a basic framework for serving Stable Diffusion 1.5 in production using simple HTTP servers.
 
-My plan is to include stable-diffusion text2img, img2img, and inpainting in this repo so that every bananese (banana user) has the same public template for sd 1.5, which means no 10-20 second cold boot cost (For now only available txt2img with negative prompt and multiple schedulers).
+My plan is to include stable-diffusion text2img, img2img, and inpainting in this repo so that every bananese (banana user) uses same public template for sd 1.5, which means no 10-20 second cold boot cost (For now only available txt2img with negative prompt and multiple schedulers).
 
 # Quickstart
 
