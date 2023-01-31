@@ -37,6 +37,7 @@ def inference(model_inputs:dict):
     steps = model_inputs.get('steps', 20)
     guidance_scale = model_inputs.get('guidance_scale', 7)
     seed = model_inputs.get('seed', None)
+    scheduler=model_inputs.get('scheduler', 'K_EULER')
 
     if not prompt: return {'message': 'No prompt was provided'}
     
