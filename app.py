@@ -1,16 +1,16 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-from transformers import pipeline
 import os
 import torch
-from diffusers import StableDiffusionPipeline, PNDMScheduler, \
-    LMSDiscreteScheduler, DDIMScheduler, EulerDiscreteScheduler, \
-    EulerAncestralDiscreteScheduler, DPMSolverMultistepScheduler
-
+from diffusers import (StableDiffusionPipeline, StableDiffusionImg2ImgPipeline, StableDiffusionInpaintPipeline,
+                       PNDMScheduler, LMSDiscreteScheduler, DDIMScheduler, EulerDiscreteScheduler,
+                       EulerAncestralDiscreteScheduler, DPMSolverMultistepScheduler)
 import torch
 from torch import autocast
 import base64
 from io import BytesIO
+from PIL import Image
+
+model_path = "runwayml/stable-diffusion-v1-5"
+inpainting_model_path = "runwayml/stable-diffusion-inpainting"
 
 
 def make_scheduler(name, config):
@@ -25,14 +25,28 @@ def make_scheduler(name, config):
 
 
 def init():
-    global model
+    global txt2img_pipe
+    global img2img_pipe
+    global inpainting_pipe
     HF_AUTH_TOKEN = os.getenv('HF_AUTH_TOKEN')
-    model = StableDiffusionPipeline.from_pretrained('runwayml/stable-diffusion-v1-5',
-                                                    torch_dtype=torch.float16, use_auth_token=HF_AUTH_TOKEN)
+    txt2img_pipe = StableDiffusionPipeline.from_pretrained(model_path,
+                                                           torch_dtype=torch.float16, use_auth_token=HF_AUTH_TOKEN)
+    img2img_pipe = StableDiffusionImg2ImgPipeline.from_pretrained(
+        model_path,
+        revision="fp16",
+        torch_dtype=torch.float16,
+        use_auth_token=HF_AUTH_TOKEN
+    )
+    inpainting_pipe = StableDiffusionInpaintPipeline.from_pretrained(
+        inpainting_model_path,
+        torch_dtype=torch.float16,
+    )
 
 
 def inference(model_inputs):
-    global model
+    global txt2img_pipe
+    global img2img_pipe
+    global inpainting_pipe
 
     prompt = model_inputs.get('prompt', None)
     negative_prompt = model_inputs.get('negative_prompt', None)
@@ -42,9 +56,38 @@ def inference(model_inputs):
     guidance_scale = model_inputs.get('guidance_scale', 7)
     seed = model_inputs.get('seed', None)
     scheduler = model_inputs.get('scheduler', 'K_EULER_ANCESTRAL')
+    mask = model_inputs.get('mask', None)
+    init_image = model_inputs.get('init_image', None)
+    prompt_strength = model_inputs.get('prompt_strength', 0.7)
 
+    extra_kwargs = {}
     if not prompt:
         return {'message': 'No prompt was provided'}
+    if mask:
+        if not init_image:
+            raise ValueError("mask was provided without init_image")
+        model = inpainting_pipe
+        init_image = Image.open(init_image).convert("RGB")
+        extra_kwargs = {
+            "mask_image": Image.open(mask).convert("RGB").resize(init_image.size),
+            "image": init_image,
+            "width": width,
+            "height": height,
+        }
+    elif init_image:
+        model = img2img_pipe
+        extra_kwargs = {
+            "init_image": Image.open(init_image).convert("RGB"),
+            "strength": prompt_strength,
+        }
+    else:
+        model = txt2img_pipe
+        extra_kwargs = {
+            "width": width,
+            "height": height,
+        }
+
+    model = model.to("cuda")
 
     generator = None
     if seed:
@@ -55,14 +98,12 @@ def inference(model_inputs):
             prompt,
             negative_prompt=negative_prompt,
             guidance_scale=guidance_scale,
-            height=height,
-            width=width,
-            num_inference_steps=steps,
             generator=generator,
+            num_inference_steps=steps,
+            **extra_kwargs,
         ).images[0]
 
     buffered = BytesIO()
     image.save(buffered, format='JPEG')
     image_base64 = base64.b64encode(buffered.getvalue()).decode('utf-8')
-
     return {'image_base64': image_base64}

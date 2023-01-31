@@ -1,8 +1,6 @@
-# 🍌 Stable Diffusion 1.5 COMPLETE on Banana
+# 🍌 Stable Diffusion 1.5 text2img - img2img - inpainting, negative prompt - multiple schedulers on Banana
 
 This repo gives a basic framework for serving Stable Diffusion 1.5 in production using simple HTTP servers.
-
-My plan is to include stable-diffusion text2img, img2img, and inpainting in this repo so that every bananese (banana user) uses same public template for sd 1.5, which means no 10-20 second cold boot cost (For now only available txt2img with negative prompt and multiple schedulers).
 
 # Quickstart
 
